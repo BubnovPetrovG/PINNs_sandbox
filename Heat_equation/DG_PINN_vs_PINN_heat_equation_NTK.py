@@ -263,7 +263,8 @@ def Adap_weights(model, X_train):
     total_data = x.shape[0]
     batches = (total_data + batch_size - 1) // batch_size
 
-    # Initialize Jacobian matrix
+    # Initialize Jacobian matrix 
+    # Jacobian PDE residual: size (PDE points, trainable parameters)
     jacobian_r = torch.zeros(total_data, sum(p.numel() for p in param_tensors_cpu))
 
     for batch in range(batches):
@@ -294,7 +295,8 @@ def Adap_weights(model, X_train):
     x = X_train['initial']['x'].requires_grad_()
     t = X_train['initial']['t'].requires_grad_()
     u_pred = model(x, t)
-    # Create jacobian matrix of data loss on CPU
+    # Create jacobian matrix of data loss on CPU 
+    # Jacobian initial condition residual: size (IC points, trainable parameters)
     jacobian_i = torch.zeros(len(u_pred), sum(p.numel() for p in param_tensors)).cpu()
 
     for i in range(len(u_pred)):
@@ -310,6 +312,7 @@ def Adap_weights(model, X_train):
     u_pred = model(x, t)
 
     # Create jacobian matrix of data loss on CPU
+    # Jacobian boundary condition residual: size (BC points, trainable parameters)
     jacobian_b = torch.zeros(len(u_pred), sum(p.numel() for p in param_tensors)).cpu()
 
     for i in range(len(u_pred)):
@@ -329,6 +332,7 @@ def Adap_weights(model, X_train):
     batches = (total_data + batch_size - 1) // batch_size
 
     # Initialize Jacobian matrix
+    # Jacobian data/measurement residual: size (measurement points, trainable parameters)
     jacobian_d = torch.zeros(total_data, sum(p.numel() for p in param_tensors_cpu))
 
     for batch in range(batches):
@@ -342,6 +346,23 @@ def Adap_weights(model, X_train):
         # Compute model predictions and derivatives for the batch
         u_pred = model(x_batch, t_batch)
         # Now process residuals_batch
+        '''
+        !!! Brief note on gradient computation:
+        Here we are looking over batches of data (u_pred is a vector). In theory, if you compute the gradient for each u_pred[i], you
+        make a computational path, so there are batch_size number of sample-specific paths through the same network. 
+        However, because we computed u_pred in a batched way, PyTorch represents all of these paths together as one batched computation 
+        graph with shared parameters, rather than separate graphs/networks! 
+        Later, selecting entry i through grad_outputs asks autograd for the parameter gradients associated with prediction i.
+        
+        In the code below, note that practically:
+        By default, autograd.grad returns one gradient-shaped result per parameter tensor, without an extra dimension for those B rows.
+        For a vector output like u_pred, the grad_outputs variable specifies how to combine those output gradients. 
+        For each parameter \(\Theta_j\), PyTorch computes: \[
+            g_j=\sum_{k=1}^{B}
+            \underbrace{\mathrm{grad\_outputs}_k}_{v_k}
+            \frac{\partial u_k}{\partial\Theta_j}.
+        \]
+        '''
         for i in range(len(u_pred)):
             grad_outputs = torch.zeros_like(u_pred)
             grad_outputs[i] = 1
@@ -371,7 +392,7 @@ def Adap_weights(model, X_train):
 
     return lambda1, lambda2, lambda3, lambda4
 
-# Compute the relative L2 error
+# Compute the relative L2 errorw
 def relative_l2_error(pred, true):
     return torch.norm(pred - true) / torch.norm(true)
 
@@ -380,10 +401,11 @@ def relative_l2_error(pred, true):
 # =============================================================================
 
 beta_1_true = 1/(20)
-batch_sizes = {'initial': 100, 'bounds': 200, 'PDE': 2000, 'data': 10000, 'validation': 10000}
+batch_sizes = {'initial': 100, 'bounds': 200, 'PDE': 2000, 'data': 500, 'validation': 10000}
 iter_1 = 20000 # Maximun number of iterations for Adam optimizer
 iter_2 = 10000  # Maximun number  of iterations for L-BFGS optimizer
-seeds_nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# seeds_nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+seeds_nums = [1]
 
 # =============================================================================
 # TRAIN MODEL
