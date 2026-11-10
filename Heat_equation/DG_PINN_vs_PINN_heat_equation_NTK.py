@@ -1,6 +1,9 @@
 # =============================================================================
 # IMPORT MODULES
 # =============================================================================
+import argparse
+from pathlib import Path
+
 import torch
 import numpy as np
 import torch.nn as nn
@@ -346,7 +349,7 @@ def Adap_weights(model, X_train):
         # Compute model predictions and derivatives for the batch
         u_pred = model(x_batch, t_batch)
         # Now process residuals_batch
-        '''
+        r'''
         !!! Brief note on gradient computation:
         Here we are looking over batches of data (u_pred is a vector). In theory, if you compute the gradient for each u_pred[i], you
         make a computational path, so there are batch_size number of sample-specific paths through the same network. 
@@ -400,6 +403,17 @@ def relative_l2_error(pred, true):
 # DATA & PARAMETERS 
 # =============================================================================
 
+parser = argparse.ArgumentParser(description='Compare DG-PINN and PINN loss-weight policies.')
+parser.add_argument(
+    '--weight-policy', choices=('original', 'uniform'), default='original',
+    help='original: use the existing NTK schedule; uniform: keep all loss weights at 1.',
+)
+args = parser.parse_args()
+weight_policy = args.weight_policy
+output_dir = Path(__file__).resolve().parents[1] / 'results' / weight_policy
+output_dir.mkdir(parents=True, exist_ok=True)
+print(f'Weight policy: {weight_policy}; results directory: {output_dir}')
+
 beta_1_true = 1/(20)
 batch_sizes = {'initial': 100, 'bounds': 200, 'PDE': 2000, 'data': 500, 'validation': 10000}
 iter_1 = 20000 # Maximun number of iterations for Adam optimizer
@@ -438,7 +452,10 @@ for seeds_num in seeds_nums:
     # Adam optimizer to decrease loss in Phase 1
     optimizer = torch.optim.Adam(list(model.parameters()), lr=1e-3)
     epoch_loss_d = train_dg_pinn(model, optimizer, X_train, iters=iter_1,  epoch_loss_d=[])
-    lambda1, lambda2, lambda3, lambda4 = Adap_weights(model, X_train)
+    if weight_policy == 'original':
+        lambda1, lambda2, lambda3, lambda4 = Adap_weights(model, X_train)
+    else:
+        lambda1 = lambda2 = lambda3 = lambda4 = 1.0
 
     # L-BFGS optimizer for fine-tuning in Phase 2
     optimizer = torch.optim.LBFGS(list(model.parameters()), lr=1e-1, max_iter=1,
@@ -465,7 +482,7 @@ for seeds_num in seeds_nums:
 
     U_pred = U_pred.cpu().detach().numpy()    
     
-    savemat(f'dgpinn_heat_NTK_seed_{seeds_num}.mat',
+    savemat(output_dir / f'dgpinn_heat_NTK_seed_{seeds_num}.mat',
             {'u_pred': u_pred, 'u_test': u_test, 'U_pred': U_pred.reshape(201,201), 'u_true': U, 
              'loss_r': epoch_loss_r, 'loss_i': epoch_loss_i, 'loss_b': epoch_loss_b, 'loss_d': epoch_loss_d, 'beta': epoch_beta, 
              'lambda1': epoch_lambda1, 'lambda2': epoch_lambda2,'lambda3': epoch_lambda3, 'lambda4': epoch_lambda4, 'time': t22 - t11})
@@ -499,7 +516,8 @@ for seeds_num in seeds_nums:
     lambda2=1
     lambda3=1
     lambda4=1
-    train_pinn(model, optimizer, X_train, NTK='True', iters=iter_1)
+    train_pinn(model, optimizer, X_train,
+               NTK='True' if weight_policy == 'original' else 'False', iters=iter_1)
 
     # L-BFGS optimizer for fine-tuning in Phase 2
     optimizer = torch.optim.LBFGS(list(model.parameters()), lr=1e-1, max_iter=1,
@@ -525,7 +543,7 @@ for seeds_num in seeds_nums:
     U_pred = model(X_true['x'], X_true['t'])
     U_pred = U_pred.cpu().detach().numpy()    
     
-    savemat(f'pinn_heat_NTK_seed_{seeds_num}.mat',
+    savemat(output_dir / f'pinn_heat_NTK_seed_{seeds_num}.mat',
             {'u_pred': u_pred, 'u_test': u_test, 'U_pred': U_pred.reshape(201,201), 'u_true': U, 
              'loss_r': epoch_loss_r, 'loss_i': epoch_loss_i, 'loss_b': epoch_loss_b, 'loss_d': epoch_loss_d, 'beta': epoch_beta, 
              'lambda1': epoch_lambda1, 'lambda2': epoch_lambda2,'lambda3': epoch_lambda3, 'lambda4': epoch_lambda4, 'time': t22 - t11})

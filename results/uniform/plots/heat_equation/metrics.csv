@@ -1,0 +1,3 @@
+method,seed,N_d,relative_L2_test,diffusivity_last_logged,diffusivity_APE_percent,training_time_seconds,source_file,measurement,flux_relative_L2_training,flux_RMSE_training
+DG-PINN,1,,0.0005070532720033247,0.002499871553640398,0.005137854384093531,302.97318610000366,C:\Users\owner\Downloads\CEE292\DG-PINNs\results\uniform\dgpinn_heat_NTK_seed_1.mat,temperature,,
+PINN,1,,1.021137702772863,51.3547869615868,2054091.4784634714,422.679644799995,C:\Users\owner\Downloads\CEE292\DG-PINNs\results\uniform\pinn_heat_NTK_seed_1.mat,temperature,,

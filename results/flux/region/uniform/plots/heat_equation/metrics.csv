@@ -1,0 +1,3 @@
+method,seed,N_d,relative_L2_test,diffusivity_last_logged,diffusivity_APE_percent,training_time_seconds,source_file,measurement,flux_relative_L2_training,flux_RMSE_training
+DG-PINN,1,402,1.2515287449069443,0.000221020552915039,91.15917788339844,548.1849730999966,C:\Users\owner\Downloads\CEE292\DG-PINNs\results\flux\uniform\dgpinn_heat_flux_seed_1.mat,flux,0.8526904542676836,0.013901094016883601
+PINN,1,402,0.032521172666000416,0.0023806197234526594,4.775211061893644,459.4407466999983,C:\Users\owner\Downloads\CEE292\DG-PINNs\results\flux\uniform\pinn_heat_flux_seed_1.mat,flux,0.03385251586950442,0.0005518849231333069
